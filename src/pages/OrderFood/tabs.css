@@ -1,0 +1,4 @@
+.react-tabs__tab--selected{
+border-bottom: 4px solid orange;
+color: orange;
+}
