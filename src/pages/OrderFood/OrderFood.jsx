@@ -24,7 +24,6 @@ const OrderFood = () => {
 	// 		setTabIndex(1);
 	// 	}
 	// }, []);
-	console.log(category);
 	const dessert = menu.filter(
 		(item) => item.category.toLowerCase() === "dessert",
 	);

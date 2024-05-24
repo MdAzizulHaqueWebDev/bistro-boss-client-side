@@ -2,45 +2,102 @@
 
 import loginImg from "../../assets/others/authentication2.png";
 import bgLogin from "../../assets/others/authentication.png";
-import { Link } from "react-router-dom";
+// import { Link, useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth";
 import Swal from "sweetalert2";
+import { useForm } from "react-hook-form";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import useAxiosInstance from "../../hooks/useAxiosInstance";
 
 const Register = () => {
-	const {createUser} = useAuth();
-	const handleRegisterForm = (e) => {
-		e.preventDefault();
-		const formData = new FormData(e.target);
-		const username = formData.get("username");
-		const email = formData.get("email");
-		const password = formData.get("password");
+	const locations = useLocation();
+
+	const { createUser, updateUserProfile, loginByGoogle } = useAuth();
+	const from = locations.state?.from?.pathname;
+
+	const navigate = useNavigate();
+	const axiosInstance = useAxiosInstance();
+	const googleLogin = () =>
+		loginByGoogle().then((res) => {
+			const userInfo = {
+				username: res?.user.displayName,
+				email: res?.user.email,
+				photoUrl: res?.user.photoURL,
+			};
+			axiosInstance.post("/users", userInfo).then((res) => {
+				if (res.data.insertedId) {
+					console.log("user save successfully in database");
+				} else {
+					console.log("user already has in database");
+				}
+			});
+			navigate(from ? from : "/");
+		});
+	const {
+		register,
+		handleSubmit,
+		formState: { errors },
+	} = useForm();
+	const onSubmit = (formData) => {
+		const email = formData.email;
+		const username = formData.username;
+		const photoUrl = formData.photoUrl;
+		const password = formData.password;
+		const userInfo = {
+			username,
+			email,
+			photoUrl,
+		};
 		createUser(email, password)
-			.then((res) => {
-				if(res.user){
-                    Swal.fire({
-                        position: "center",
-                        icon: "success",
-                        title: "User create successfully",
-                        showConfirmButton: false,
-                        timer: 1000
-                      });
-                }
+			.then(() => {
+				updateUserProfile(username, photoUrl)
+					.then(() => {
+						// send user data in database
+						axiosInstance.post("/users", userInfo).then((res) => {
+							if (res.data.insertedId) {
+								Swal.fire({
+									position: "center",
+									icon: "success",
+									title: "User create successfully",
+									showConfirmButton: false,
+									timer: 1000,
+								});
+								navigate(from ? from : "/");
+							}
+						});
+					})
+					.catch((er) => {
+						Swal.fire({
+							position: "center",
+							icon: "error",
+							title: er.message.split("/")[1].replace(").", ""),
+							showConfirmButton: false,
+							timer: 1000,
+						});
+					});
+				// window.location.replace("/")
 			})
 			.catch((er) => {
-				console.log(er);
+				Swal.fire({
+					position: "center",
+					icon: "error",
+					title: er.message.split("/")[1].replace(").", ""),
+					showConfirmButton: false,
+					timer: 1000,
+				});
 			});
 	};
 
 	return (
 		<div>
-			<div style={{ backgroundImage: `url("${bgLogin}")` }}>
-				<div className="shadow-2xl flex-row-reverse flex justify-center items-center px-8 border-4 py-14">
+			<div className="p-4" style={{ backgroundImage: `url("${bgLogin}")` }}>
+				<div className="shadow-2xl lg:w-10/12 mx-auto flex p-4  justify-center items-center border-4 flex-row-reverse">
 					<section>
 						<img src={loginImg} alt="" />
 					</section>
-					<div className="w-full max-w-md p-8 space-y-3 rounded-xl bg-gray-50 text-gray-800">
+					<div className="w-full max-w-md p-8 space-y-3 rounded-xl text-gray-800">
 						<h1 className="text-2xl font-bold text-center">Register</h1>
-						<form onSubmit={handleRegisterForm} className="space-y-6">
+						<form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 							<div className="space-y-1 text-sm">
 								<label htmlFor="username" className="block text-gray-600">
 									Username
@@ -48,10 +105,34 @@ const Register = () => {
 								<input
 									type="text"
 									name="username"
+									{...register("username", {
+										required: true,
+									})}
 									id="username"
-									placeholder="Username"
+									placeholder="Enter Your Name"
 									className="w-full px-4 py-3 input input-bordered rounded-md border-gray-300 bg-gray-50 text-gray-800 focus:border-sky-600"
 								/>
+								{errors.username && (
+									<span className="text-rose-500">This field is required</span>
+								)}
+							</div>
+							<div className="space-y-1 text-sm">
+								<label htmlFor="photoUrl" className="block text-gray-600">
+									photoUrl
+								</label>
+								<input
+									type="url"
+									name="photoUrl"
+									{...register("photoUrl", {
+										required: true,
+									})}
+									id="photoUrl"
+									placeholder="Enter Your  photoUrl"
+									className="w-full px-4 py-3 input input-bordered rounded-md border-gray-300 bg-gray-50 text-gray-800 focus:border-sky-600"
+								/>
+								{errors.photoUrl && (
+									<span className="text-rose-500">This field is required</span>
+								)}
 							</div>
 							<div className="space-y-1 text-sm">
 								<label htmlFor="email" className="block text-gray-600">
@@ -60,10 +141,28 @@ const Register = () => {
 								<input
 									type="text"
 									name="email"
+									{...register("email", {
+										required: true,
+										maxLength: 60,
+										pattern:
+											/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/i,
+									})}
 									id="email"
-									placeholder="email"
+									placeholder="Enter Your  email"
 									className="w-full px-4 py-3 input input-bordered rounded-md border-gray-300 bg-gray-50 text-gray-800 focus:border-sky-600"
 								/>
+								{errors.email?.type == "required" && (
+									<span className="text-rose-500">This field is required</span>
+								)}
+
+								{errors.email?.type == "maxLength" && (
+									<span className="text-rose-500">Email was length so big</span>
+								)}
+								{errors.email?.type == "pattern" && (
+									<span className="text-rose-500">
+										Please give a valid email
+									</span>
+								)}
 							</div>
 							<div className="space-y-1 text-sm">
 								<label htmlFor="password" className="block text-gray-600">
@@ -72,10 +171,32 @@ const Register = () => {
 								<input
 									type="password"
 									name="password"
+									{...register("password", {
+										required: {
+											value: true,
+											message: "please fill out this password  field ",
+										},
+
+										pattern: {
+											value: /^(?=.*[a-z])(?=.*[A-Z]).{6,}$/,
+											message:
+												"Password must contain at least one uppercase  & lowercase letter .",
+										},
+
+										minLength: {
+											value: 6,
+											message: "password must be 6 characters",
+										},
+									})}
 									id="password"
-									placeholder="Password"
+									placeholder="Enter Your Password"
 									className="w-full px-4 py-3 input input-bordered rounded-md border-gray-300 bg-gray-50 text-gray-800 focus:border-sky-600"
 								/>
+								{errors.password && (
+									<p className="text-red-500 text-start">
+										{errors.password.message}{" "}
+									</p>
+								)}
 								<div className="flex justify-end text-xs text-gray-600">
 									<a rel="noopener noreferrer" href="#">
 										Forgot Password?
@@ -95,6 +216,7 @@ const Register = () => {
 						</div>
 						<div className="flex justify-center space-x-4">
 							<button
+								onClick={googleLogin}
 								aria-label="Log in with Google"
 								className="p-3 rounded-sm"
 							>
@@ -132,7 +254,7 @@ const Register = () => {
 							</button>
 						</div>
 						<p className="text-xs text-center sm:px-6 text-gray-600">
-							Don't have an account?
+							already have an account?
 							<Link to={"/login"} className="underline text-2xl text-gray-800">
 								Login
 							</Link>

@@ -1,8 +1,17 @@
 /** @format */
 
-import { NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router-dom";
+import useAuth from "../../hooks/useAuth";
+import { FaShoppingCart } from "react-icons/fa";
+import useCarts from "../../hooks/useCarts";
 
 const Navbar = () => {
+	const { user, logOut, loading } = useAuth();
+	const [carts, refetch] = useCarts();
+	// console.log(carts);
+	const signOut = () => {
+		logOut().then(() => refetch());
+	};
 	const navLinks = (
 		<>
 			<NavLink to="/">
@@ -25,14 +34,14 @@ const Navbar = () => {
 					<a>Our Menu</a>
 				</li>
 			</NavLink>
+			<NavLink to="/secret">
+				<li>
+					<a>Secret</a>
+				</li>
+			</NavLink>
 			<NavLink to="/order-food/salad">
 				<li>
 					<a>Order Food</a>
-				</li>
-			</NavLink>
-			<NavLink to="/login">
-				<li>
-					<a>Login</a>
 				</li>
 			</NavLink>
 		</>
@@ -72,11 +81,32 @@ const Navbar = () => {
 						<span className="text-sm font-medium">Resturants</span>
 					</p>
 				</div>
-				<div className="navbar-center hidden lg:flex">
+				<div className="navbar-center hidden  lg:flex">
 					<ul className="menu menu-horizontal px-1">{navLinks}</ul>
-				</div>
-				<div className="navbar-end">
-					<a className="btn">Button</a>
+					<NavLink to="/dashboard/carts">
+						<button className="btn btn-sm">
+							<FaShoppingCart />
+							<div className="badge badge-secondary">{carts.length}</div>
+						</button>
+					</NavLink>
+					{user ? (
+						<section className="flex items-center mx-2 gap-3 ">
+							<div>
+								<button onClick={signOut}>SignOut</button>
+							</div>
+							<div className="avatar">
+								<div className="w-12 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
+									<img src={user?.photoURL} />
+								</div>
+							</div>
+						</section>
+					) : loading ? (
+						"  "
+					) : (
+						<Link to="/login">
+							<button className="btn mx-2 p-2 btn-sm ">Login</button>
+						</Link>
+					)}
 				</div>
 			</div>
 		</>

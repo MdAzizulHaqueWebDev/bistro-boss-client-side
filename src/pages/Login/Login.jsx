@@ -2,7 +2,7 @@
 
 import loginImg from "../../assets/others/authentication2.png";
 import bgLogin from "../../assets/others/authentication.png";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
 	loadCaptchaEnginge,
 	LoadCanvasTemplate,
@@ -11,10 +11,15 @@ import {
 import { useEffect, useRef, useState } from "react";
 import useAuth from "../../hooks/useAuth";
 import Swal from "sweetalert2";
+import useAxiosInstance from "../../hooks/useAxiosInstance";
 const Login = () => {
+	const location = useLocation();
+	const from = location.state?.from?.pathname;
 	const captchaRef = useRef(null);
+	const navigate = useNavigate();
 	const { loginByEmailPass, loginByGoogle } = useAuth();
-	const [disabled, setDisabled] = useState(false);
+	const [disabled, setDisabled] = useState(true);
+	const axiosInstance = useAxiosInstance();
 	useEffect(() => {
 		loadCaptchaEnginge(4);
 	}, []);
@@ -24,36 +29,57 @@ const Login = () => {
 		const email = formData.get("email");
 		const password = formData.get("password");
 		loginByEmailPass(email, password)
-			.then((res) => {
+			.then(() => {
 				Swal.fire({
-					position: "top-end",
+					position: "center",
 					icon: "success",
 					title: "Login success",
 					showConfirmButton: false,
-					timer: 1500,
+					timer: 1000,
 				});
+				navigate(from ? from : "/");
 			})
 			.catch((er) => {
-				console.log(er);
+				Swal.fire({
+					position: "center",
+					icon: "error",
+					title: er.message.split("/")[1].replace(").", ""),
+				});
 			});
 	};
-
 	// login by google
-	const handleGoogleLogin = () => loginByGoogle()
-    .then(res => {
-    if(res.user){
-        Swal.fire({
-            position: "center",
-            icon: "success",
-            title: "Login success",
-            showConfirmButton: false,
-            timer: 1000
-          });
-    }
-    })
-    .catch(er => {
-    console.log(er);
-    })
+	const handleGoogleLogin = () =>
+		loginByGoogle()
+			.then((res) => {
+				const userInfo = {
+				username: res?.user.displayName,
+					email: res.user.email,
+					photoUrl: res.user.photoURL,
+				};
+				axiosInstance.post("/users", userInfo).then((res) => {
+					if (res.data.insertedId) {
+						console.log("user save in database successfully");
+					} else {
+						console.log("user already has in database");
+					}
+				});
+				Swal.fire({
+					position: "center",
+					icon: "success",
+					title: "Login success",
+					showConfirmButton: false,
+					timer: 1000,
+				});
+				navigate(from ? from : "/");
+			})
+
+			.catch((er) => {
+				Swal.fire({
+					position: "center",
+					icon: "error",
+					title: er.message,
+				});
+			});
 
 	const handleCaptchaValidation = (e) => {
 		e.preventDefault();
@@ -66,14 +92,14 @@ const Login = () => {
 	};
 	return (
 		<div
-			className="md:p-8 bg-cover min-w-full"
+			className="md:p-4 bg-cover "
 			style={{ backgroundImage: `url("${bgLogin}")` }}
 		>
-			<div className="shadow-2xl lg:w-10/12 mx-auto flex p-6 justify-center items-center border-4">
+			<div className="shadow-2xl lg:w-10/12 mx-auto flex p-4 justify-center items-center border-4">
 				<section className="hidden md:block">
 					<img src={loginImg} alt="" />
 				</section>
-				<div className="w-full max-w-md p-8 space-y-1 rounded-xl bg-gray-50 text-gray-800">
+				<div className="w-full max-w-md p-8 space-y-1 text-gray-800">
 					<h1 className="text-2xl font-bold text-center">Login</h1>
 					<form onSubmit={handleLoginForm} className="space-y-2">
 						<div className="space-y-1 text-sm">
@@ -81,6 +107,7 @@ const Login = () => {
 								Email*
 							</label>
 							<input
+								required
 								type="email"
 								name="email"
 								id="email"
@@ -93,6 +120,7 @@ const Login = () => {
 								Password
 							</label>
 							<input
+								required
 								type="password"
 								name="password"
 								id="password"
@@ -105,11 +133,11 @@ const Login = () => {
 								</a>
 							</div>
 						</div>
-						<div className="space-y-1 text-sm">
-							<label htmlFor="captcha" className="block text-gray-600">
-								<LoadCanvasTemplate />
-							</label>
+						<div className="space-y-1 text-sm relative">
+							<LoadCanvasTemplate />
+							<label htmlFor="captcha" className="block text-gray-600"></label>
 							<input
+								required
 								ref={captchaRef}
 								type="captcha"
 								name="captcha"
@@ -117,23 +145,24 @@ const Login = () => {
 								placeholder="what's here ?"
 								className="w-full px-4 py-3 input input-bordered rounded-md border-gray-300 bg-gray-50 text-gray-800 focus:border-sky-600"
 							/>
-							<div>
+							<div className="absolute top-[60%] right-1">
 								<button
 									onClick={handleCaptchaValidation}
-									className="btn btn-xs"
+									className="btn btn-error hover:btn-warning btn-sm"
 								>
-									validate
+									Ok
 								</button>
 							</div>
 						</div>
 						<button
-							disabled={disabled}
+							// todo : enable before production
+							disabled={false}
 							className="block w-full btn hover:btn-error text-center rounded-sm text-gray-50 bg-orange-300"
 						>
 							Sign in
 						</button>
 					</form>
-					<div className="flex items-center pt-4 space-x-1">
+					<div className="flex items-center pt-1 space-x-1">
 						<div className="flex-1 h-px sm:w-16 bg-gray-300"></div>
 						<p className="px-3 text-sm text-gray-600">
 							Login with social accounts
@@ -141,7 +170,11 @@ const Login = () => {
 						<div className="flex-1 h-px sm:w-16 bg-gray-300"></div>
 					</div>
 					<div className="flex justify-center space-x-4">
-						<button onClick={handleGoogleLogin} aria-label="Log in with Google" className="p-3 rounded-sm">
+						<button
+							onClick={handleGoogleLogin}
+							aria-label="Log in with Google"
+							className="p-3 rounded-sm"
+						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								viewBox="0 0 32 32"
